@@ -38,11 +38,13 @@ def find_pr(args):
     url = f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls"
     headers = {
         "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {args.token}",
     }
+    if args.token is not None:
+        headers["Authorization"] = f"Bearer {args.token}"
     params = {
         "state": "open",
     }
+
     page = 1
     results = []
     while True:
@@ -88,7 +90,7 @@ def main():
         description="Let's talk to GitHub, record what was done",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--token',
-                        default=os.getenv(f'GITHUB_TOKEN', 'N/A'),
+                        default=os.getenv(f'GITHUB_TOKEN', None),
                         help='GitHub personal access token')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Show debug output')
