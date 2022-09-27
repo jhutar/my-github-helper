@@ -12,6 +12,15 @@ import yaml
 STATUS_FILE = "status.yaml"
 
 
+def _headers(args):
+    headers = {
+        "Accept": "application/vnd.github+json",
+    }
+    if args.token is not None:
+        headers["Authorization"] = f"Bearer {args.token}"
+    return headers
+
+
 def load_status():
     if not os.path.isfile(STATUS_FILE):
         with open(STATUS_FILE, "w+") as fp:
@@ -36,11 +45,6 @@ def find_pr(args):
     status = load_status()
 
     url = f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls"
-    headers = {
-        "Accept": "application/vnd.github+json",
-    }
-    if args.token is not None:
-        headers["Authorization"] = f"Bearer {args.token}"
     params = {
         "state": "open",
     }
@@ -52,7 +56,7 @@ def find_pr(args):
         params_this = {"page": page}
         params_this.update(params)
 
-        response = requests.get(url, headers=headers, params=params_this)
+        response = requests.get(url, headers=_headers(args), params=params_this)
         if not response.ok:
             raise Exception(f"Failed to get reposnse {url} page {page}: {response.status_code} {response.text}")
 
