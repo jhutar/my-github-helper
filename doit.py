@@ -68,24 +68,26 @@ def find_pr(args):
         page += 1
 
     for pr in sorted(results, key=lambda d: d['updated_at'], reverse=True):
+        pr_number = pr["number"]
         pr_issue_url = pr["issue_url"]
         pr_updated_at = pr["updated_at"]
         if pr_issue_url in status:
             if pr_updated_at == status[pr_issue_url]["updated_at"]:
-                logging.debug(f"PR {pr_issue_url} last updated at {pr_updated_at} already processed, skipping it")
+                logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} already processed, skipping it")
             else:
-                logging.info(f"PR {pr_issue_url} last updated at {pr_updated_at} last processed for change from {status[pr_issue_url]['updated_at']}, need to process it")
-                print(f"{pr_issue_url} {pr_updated_at}")
+                logging.info(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} last processed for change from {status[pr_issue_url]['updated_at']}, need to process it")
+                print(f"{pr_number} {pr_issue_url} {pr_updated_at}")
                 break
         else:
-            logging.info(f"PR {pr_issue_url} last updated at {pr_updated_at} not yet processed, need to process it")
-            print(f"{pr_issue_url} {pr_updated_at}")
+            logging.info(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} not yet processed, need to process it")
+            print(f"{pr_number} {pr_issue_url} {pr_updated_at}")
             break
 
 
 def processed_pr(args):
+    pr_number = int(args.issue_url.split('/')[-1])
     status = load_status()
-    status[args.issue_url] = {"updated_at": args.updated_at}
+    status[args.issue_url] = {"number": pr_number, "updated_at": args.updated_at}
     dump_status(status)
 
 
