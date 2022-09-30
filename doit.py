@@ -110,10 +110,11 @@ def status_commit(args):
     url = f"https://api.github.com/repos/{args.owner}/{args.repo}/statuses/{args.commit}"
     data = {
         "state": args.status_state,
-        "target_url": args.status_target_url,
         "description": args.status_description,
         "context": args.status_context,
     }
+    if "status_target_url" in args:
+        data["target_url"] = args.status_target_url
 
     response = requests.post(url, headers=_headers(args), json=data)
     if not response.ok:
@@ -148,7 +149,7 @@ def main():
     parser_status_commit.add_argument('--repo', required=True, help='Repo name')
     parser_status_commit.add_argument('--commit', required=True, help='Commit sha')
     parser_status_commit.add_argument('--status-state', required=True, choices=['error', 'failure', 'pending', 'success'], help='Status state')
-    parser_status_commit.add_argument('--status-target-url', required=True, help='Status target url')
+    parser_status_commit.add_argument('--status-target-url', help='Status target url')
     parser_status_commit.add_argument('--status-description', required=True, help='Status description')
     parser_status_commit.add_argument('--status-context', required=True, help='Satus context')
 
