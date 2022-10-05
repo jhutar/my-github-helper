@@ -79,10 +79,20 @@ def find_pr(args):
         pr_number = pr["number"]
         pr_issue_url = pr["issue_url"]
         pr_updated_at = pr["updated_at"]
+        pr_user_login = pr["user"]["login"]
 
         if pr_issue_url in status and pr_updated_at == status[pr_issue_url]["updated_at"]:
             logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} already processed, skipping it")
             continue
+
+        if args.author_in_org is not None:
+            url = f"https://api.github.com/orgs/{args.author_in_org}/memberships/{pr_user_login}"
+            response = requests.get(url, headers=_headers(args))
+            if response.status_code != 200 \
+               or "organization" not in response.json() \
+               or args.author_in_org != response.json()["organization"]["login"]:
+                logging.debug(f"PR {pr_number}/{pr_issue_url} author {pr_user_login} is not member of {args.author_in_org}, skipping it")
+                continue
 
         logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} might need to be processed")
 
@@ -136,6 +146,7 @@ def main():
     parser_find_pr.set_defaults(func=find_pr)
     parser_find_pr.add_argument('--owner', required=True, help='Owner of the repo')
     parser_find_pr.add_argument('--repo', required=True, help='Repo name')
+    parser_find_pr.add_argument('--author-in-org', default=None, help='Skip PRs from authors not in this organization')
 
     parser_processed_pr = subparsers.add_parser('processed_pr', help='Store PR as processed')
     parser_processed_pr.set_defaults(func=processed_pr)
