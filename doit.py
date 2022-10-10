@@ -109,6 +109,21 @@ def find_pr(args):
         break
 
 
+def load_pr(args):
+    url = f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls/{args.pr_number}"
+    response = requests.get(url, headers=_headers(args))
+    pr = response.json()
+
+    pr_number = pr["number"]
+    pr_issue_url = pr["issue_url"]
+    pr_updated_at = pr["updated_at"]
+
+    pr_last_commit = [c for c in _get_all(pr["commits_url"], headers=_headers(args))][-1]
+    pr_last_commit_sha = pr_last_commit["sha"]
+
+    print(f"{pr_number} {pr_issue_url} {pr_updated_at} {pr_last_commit_sha}")
+
+
 def processed_pr(args):
     pr_number = int(args.issue_url.split('/')[-1])
     status = _load_status()
@@ -147,6 +162,12 @@ def main():
     parser_find_pr.add_argument('--owner', required=True, help='Owner of the repo')
     parser_find_pr.add_argument('--repo', required=True, help='Repo name')
     parser_find_pr.add_argument('--author-in-org', default=None, help='Skip PRs from authors not in this organization')
+
+    parser_load_pr = subparsers.add_parser('load_pr', help='Load details for given PR')
+    parser_load_pr.set_defaults(func=load_pr)
+    parser_load_pr.add_argument('--owner', required=True, help='Owner of the repo')
+    parser_load_pr.add_argument('--repo', required=True, help='Repo name')
+    parser_load_pr.add_argument('--pr-number', default='', help='Do not find PR, just ')
 
     parser_processed_pr = subparsers.add_parser('processed_pr', help='Store PR as processed')
     parser_processed_pr.set_defaults(func=processed_pr)
