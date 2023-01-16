@@ -73,6 +73,7 @@ def find_pr(args):
         "state": "open",
         "sort": "updated",
         "direction": "desc",
+        "draft": false,
     }
 
     for pr in _get_all(url, params=params, headers=_headers(args)):
