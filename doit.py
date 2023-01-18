@@ -81,9 +81,17 @@ def find_pr(args):
         pr_issue_url = pr["issue_url"]
         pr_updated_at = pr["updated_at"]
         pr_user_login = pr["user"]["login"]
+        pr_last_commit_sha = pr["head"]["sha"]
+        logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} head commit {pr_last_commit_sha} is being considered")
 
         if pr_issue_url in status and pr_updated_at == status[pr_issue_url]["updated_at"]:
             logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} already processed, skipping it")
+            continue
+
+        if pr_issue_url in status and \
+           "last_commit_sha" in status[pr_issue_url] and \
+           pr_last_commit_sha == status[pr_issue_url]["last_commit_sha"]:
+            logging.debug(f"PR {pr_number}/{pr_issue_url} last commit {pr_last_commit_sha} already processed, skipping it")
             continue
 
         if args.author_in_org is not None:
@@ -95,16 +103,14 @@ def find_pr(args):
                 logging.debug(f"PR {pr_number}/{pr_issue_url} author {pr_user_login} is not member of {args.author_in_org}, skipping it")
                 continue
 
-        logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} might need to be processed")
-
-        pr_last_commit = [c for c in _get_all(pr["commits_url"], headers=_headers(args))][-1]
-        pr_last_commit_sha = pr_last_commit["sha"]
-
-        if pr_issue_url in status and \
-           "last_commit_sha" in status[pr_issue_url] and \
-           pr_last_commit_sha == status[pr_issue_url]["last_commit_sha"]:
-            logging.debug(f"Last commit {pr_last_commit_sha} already processed, skipping it")
-            continue
+        if args.successful_check is not None:
+            url = f"https://api.github.com/repos/{args.owner}/{args.repo}/statuses/{pr_last_commit_sha}"
+            statuses_filtered = [s for s in _get_all(url, headers=_headers(args)) if s["context"] == args.successful_check]
+            logging.debug(f"PR {pr_number}/{pr_issue_url} have '{args.successful_check}' checks from {', '.join([s['updated_at'] for s in statuses_filtered])}")
+            status_max = max(statuses_filtered, key=lambda s: s["updated_at"])
+            if len(statuses_filtered) == 0 or status_max["state"] != "success":
+                logging.debug(f"PR {pr_number}/{pr_issue_url} does not have expected '{args.successful_check}' check, skipping it")
+                continue
 
         print(f"{pr_number} {pr_issue_url} {pr_updated_at} {pr_last_commit_sha}")
         break
@@ -163,6 +169,7 @@ def main():
     parser_find_pr.add_argument('--owner', required=True, help='Owner of the repo')
     parser_find_pr.add_argument('--repo', required=True, help='Repo name')
     parser_find_pr.add_argument('--author-in-org', default=None, help='Skip PRs from authors not in this organization')
+    parser_find_pr.add_argument('--successful-check', default=None, help='Skip PRs that did not passed this check')
 
     parser_load_pr = subparsers.add_parser('load_pr', help='Load details for given PR')
     parser_load_pr.set_defaults(func=load_pr)
