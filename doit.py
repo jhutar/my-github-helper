@@ -73,7 +73,6 @@ def find_pr(args):
         "state": "open",
         "sort": "updated",
         "direction": "desc",
-        "draft": False,
     }
 
     for pr in _get_all(url, params=params, headers=_headers(args)):
@@ -83,6 +82,9 @@ def find_pr(args):
         pr_user_login = pr["user"]["login"]
         pr_last_commit_sha = pr["head"]["sha"]
         logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} head commit {pr_last_commit_sha} is being considered")
+
+        if pr["draft"] == True:
+            logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} is a draft, skipping it")
 
         if pr_issue_url in status and pr_updated_at == status[pr_issue_url]["updated_at"]:
             logging.debug(f"PR {pr_number}/{pr_issue_url} last updated at {pr_updated_at} already processed, skipping it")
