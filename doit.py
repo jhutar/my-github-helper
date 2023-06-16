@@ -109,8 +109,12 @@ def find_pr(args):
             url = f"https://api.github.com/repos/{args.owner}/{args.repo}/statuses/{pr_last_commit_sha}"
             statuses_filtered = [s for s in _get_all(url, headers=_headers(args)) if s["context"] == args.successful_check]
             logging.debug(f"PR {pr_number}/{pr_issue_url} have '{args.successful_check}' checks from {', '.join([s['updated_at'] for s in statuses_filtered])}")
-            status_max = max(statuses_filtered, key=lambda s: s["updated_at"])
-            if len(statuses_filtered) == 0 or status_max["state"] != "success":
+            if len(statuses_filtered) != 0:
+                status_max = max(statuses_filtered, key=lambda s: s["updated_at"])
+                if status_max["state"] != "success":
+                    logging.debug(f"PR {pr_number}/{pr_issue_url} - {pr_last_commit_sha} does not have expected state, skipping it")
+                    continue
+            else:
                 logging.debug(f"PR {pr_number}/{pr_issue_url} does not have expected '{args.successful_check}' check, skipping it")
                 continue
 
