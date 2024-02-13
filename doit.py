@@ -21,30 +21,27 @@ def _headers(args):
     return headers
 
 
+def _get_raw(url, **kwargs):
+    response = requests.get(url, **kwargs)
+    if not response.ok:
+        raise Exception(f"Failed to get reposnse {url}: {response.status_code} {response.text}")
+    return response
+
+
 def _get_all(url, **kwargs):
-    page = 1
     while True:
-        logging.debug(f"Loading {url} page {page}")
-
-        if "params" not in kwargs:
-            kwargs["params"] = {"page": page}
-        else:
-            kwargs["params"]["page"] = page
-
-        response = requests.get(url, **kwargs)
-        if not response.ok:
-            raise Exception(f"Failed to get reposnse {url} page {page}: {response.status_code} {response.text}")
-
-        if len(response.json()) == 0:
-            break
+        response = _get_raw(url, **kwargs)
 
         results = response.json()
-        logging.debug(f"Got {len(response.json())} results")
-        page += 1
+        logging.debug(f"From {url} got {len(response.json())} results")
 
         for r in results:
             yield r
 
+        if "next" in response.links:
+            url = response.links["next"]["url"]
+        else:
+            break
 
 def _load_status():
     if not os.path.isfile(STATUS_FILE):
