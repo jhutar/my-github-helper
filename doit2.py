@@ -22,11 +22,12 @@ class _JSONDecoder(json.JSONDecoder):
     def object_hook(self, obj):
         ret = {}
         for key, value in obj.items():
-            if key in {'created_at'}:
+            if key in {"created_at"}:
                 ret[key] = datetime.datetime.fromisoformat(value)
             else:
                 ret[key] = value
         return ret
+
 
 class _JSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -47,14 +48,18 @@ def _headers(args):
 def _post_raw(url, **kwargs):
     response = requests.post(url, **kwargs)
     if not response.ok:
-        raise Exception(f"Failed to get reposnse {url}: {response.status_code} {response.text}")
+        raise Exception(
+            f"Failed to get reposnse {url}: {response.status_code} {response.text}"
+        )
     return response
 
 
 def _get_raw(url, **kwargs):
     response = requests.get(url, **kwargs)
     if not response.ok:
-        raise Exception(f"Failed to get reposnse {url}: {response.status_code} {response.text}")
+        raise Exception(
+            f"Failed to get reposnse {url}: {response.status_code} {response.text}"
+        )
     return response
 
 
@@ -98,11 +103,12 @@ def get_pull_request(args):
 
 def create_issue_comment(args):
     url = f"https://api.github.com/repos/{args.owner}/{args.repo}/issues/{args.issue_number}/comments"
-    data = _post_raw(url, headers=_headers(args), json={"body": args.body})
+    _post_raw(url, headers=_headers(args), json={"body": args.body})
 
 
 def add_comment(args):
     create_issue_comment(args)
+
 
 def _checks_filter(args, data):
     if args.latest_by_context:
@@ -119,10 +125,20 @@ def _checks_filter(args, data):
         data = [d for d in data if d["state"] == args.filter_by_state]
 
     if args.filter_by_context_re is not None:
-        data = [d for d in data if d["context"] is not None and re.search(args.filter_by_context_re, d["context"]) is not None]
+        data = [
+            d
+            for d in data
+            if d["context"] is not None
+            and re.search(args.filter_by_context_re, d["context"]) is not None
+        ]
 
     if args.filter_by_target_url_re is not None:
-        data = [d for d in data if d["target_url"] is not None and re.search(args.filter_by_target_url_re, d["target_url"]) is not None]
+        data = [
+            d
+            for d in data
+            if d["target_url"] is not None
+            and re.search(args.filter_by_target_url_re, d["target_url"]) is not None
+        ]
 
     if args.filter_by_created_at_ge is not None:
         data = [d for d in data if d["created_at"] >= args.filter_by_created_at_ge]
@@ -154,7 +170,7 @@ def list_checks(args):
             guess_test_name = d["context"].split("/")[-1]
 
             if not os.path.exists(guess_run_id):
-              os.makedirs(guess_run_id)
+                os.makedirs(guess_run_id)
 
             runme = [
                 "gsutil",
@@ -166,7 +182,9 @@ def list_checks(args):
             ]
             print(f"Downloading: {' '.join(runme)}")
 
-            process = subprocess.Popen(runme, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                runme, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             stdout, stderr = process.communicate()
             exit_code = process.returncode
 
@@ -183,32 +201,53 @@ def list_checks(args):
 def main():
     parser = argparse.ArgumentParser(
         description="Let's talk to GitHub, record what was done",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--token',
-                        default=os.getenv(f'GITHUB_TOKEN', None),
-                        help='GitHub personal access token')
-    parser.add_argument('-d', '--debug', action='store_true',
-                        help='Show debug output')
-    subparsers = parser.add_subparsers(help='Sub-command help')
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--token",
+        default=os.getenv("GITHUB_TOKEN", None),
+        help="GitHub personal access token",
+    )
+    parser.add_argument("-d", "--debug", action="store_true", help="Show debug output")
+    subparsers = parser.add_subparsers(help="Sub-command help")
 
-    parser_list_checks = subparsers.add_parser('list_checks', help='List checks')
+    parser_list_checks = subparsers.add_parser("list_checks", help="List checks")
     parser_list_checks.set_defaults(func=list_checks)
-    parser_list_checks.add_argument('--owner', required=True, help='Owner of the repo')
-    parser_list_checks.add_argument('--repo', required=True, help='Repo name')
-    parser_list_checks.add_argument('--pull-number', help='PR number')
-    parser_list_checks.add_argument('--filter-by-state', help='Only show checks with this state')
-    parser_list_checks.add_argument('--filter-by-context-re', help='Only show checks with context matching this regexp, check automatically excluded if its context is empty')
-    parser_list_checks.add_argument('--filter-by-target-url-re', help='Only show checks with target_url matching this regexp, check automatically excluded if its target_url is empty')
-    parser_list_checks.add_argument('--filter-by-created-at-ge', type=datetime.datetime.fromisoformat, help='Only show checks with created_at >= of given date')
-    parser_list_checks.add_argument('--latest-by-context', action='store_true', help='Only show latest checks for every context by created_at time')
-    parser_list_checks.add_argument("--prow-download-path", help="Download artifacts from Prow at this path (e.g. 'openshift-pipelines-max-concurrency/artifacts/'")
+    parser_list_checks.add_argument("--owner", required=True, help="Owner of the repo")
+    parser_list_checks.add_argument("--repo", required=True, help="Repo name")
+    parser_list_checks.add_argument("--pull-number", help="PR number")
+    parser_list_checks.add_argument(
+        "--filter-by-state", help="Only show checks with this state"
+    )
+    parser_list_checks.add_argument(
+        "--filter-by-context-re",
+        help="Only show checks with context matching this regexp, check automatically excluded if its context is empty",
+    )
+    parser_list_checks.add_argument(
+        "--filter-by-target-url-re",
+        help="Only show checks with target_url matching this regexp, check automatically excluded if its target_url is empty",
+    )
+    parser_list_checks.add_argument(
+        "--filter-by-created-at-ge",
+        type=datetime.datetime.fromisoformat,
+        help="Only show checks with created_at >= of given date",
+    )
+    parser_list_checks.add_argument(
+        "--latest-by-context",
+        action="store_true",
+        help="Only show latest checks for every context by created_at time",
+    )
+    parser_list_checks.add_argument(
+        "--prow-download-path",
+        help="Download artifacts from Prow at this path (e.g. 'openshift-pipelines-max-concurrency/artifacts/'",
+    )
 
-    parser_add_comment = subparsers.add_parser('add_comment', help='Add comment')
+    parser_add_comment = subparsers.add_parser("add_comment", help="Add comment")
     parser_add_comment.set_defaults(func=add_comment)
-    parser_add_comment.add_argument('--owner', required=True, help='Owner of the repo')
-    parser_add_comment.add_argument('--repo', required=True, help='Repo name')
-    parser_add_comment.add_argument('--issue-number', help='Issue (or PR) number')
-    parser_add_comment.add_argument('--body', help='Comment body')
+    parser_add_comment.add_argument("--owner", required=True, help="Owner of the repo")
+    parser_add_comment.add_argument("--repo", required=True, help="Repo name")
+    parser_add_comment.add_argument("--issue-number", help="Issue (or PR) number")
+    parser_add_comment.add_argument("--body", help="Comment body")
 
     args = parser.parse_args()
 
