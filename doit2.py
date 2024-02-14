@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 import re
+import subprocess
 import sys
 
 import requests
@@ -103,12 +104,7 @@ def create_issue_comment(args):
 def add_comment(args):
     create_issue_comment(args)
 
-def list_checks(args):
-    data = get_pull_request(args)
-    args.commit = data["head"]["sha"]
-
-    data = list_commit_statuses_for_reference(args)
-
+def _checks_filter(args, data):
     if args.latest_by_context:
         data_new = {}
         for d in data:
@@ -119,41 +115,69 @@ def list_checks(args):
                     data_new[d["context"]] = d
         data = list(data_new.values())
 
+    if args.filter_by_state is not None:
+        data = [d for d in data if d["state"] == args.filter_by_state]
+
+    if args.filter_by_context_re is not None:
+        data = [d for d in data if d["context"] is not None and re.search(args.filter_by_context_re, d["context"]) is not None]
+
+    if args.filter_by_target_url_re is not None:
+        data = [d for d in data if d["target_url"] is not None and re.search(args.filter_by_target_url_re, d["target_url"]) is not None]
+
+    if args.filter_by_created_at_ge is not None:
+        data = [d for d in data if d["created_at"] >= args.filter_by_created_at_ge]
+
+    return data
+
+
+def list_checks(args):
+    data = get_pull_request(args)
+    args.commit = data["head"]["sha"]
+
+    data = list_commit_statuses_for_reference(args)
+
+    data = _checks_filter(args, data)
+
     fields = ["created_at", "state", "context", "target_url"]
     table = []
     for d in data:
         logging.debug(f"Processing: {_json_dumps(d)}")
-        if args.filter_by_state is not None:
-            if d["state"] != args.filter_by_state:
-                continue
-        if args.filter_by_context_re is not None:
-            if d["context"] is None or re.search(args.filter_by_context_re, d["context"]) is None:
-                continue
-        if args.filter_by_target_url_re is not None:
-            if d["target_url"] is None or re.search(args.filter_by_target_url_re, d["target_url"]) is None:
-                continue
-        if args.filter_by_created_at_ge is not None:
-            if d["created_at"] < args.filter_by_created_at_ge:
-                continue
-        row = []
-        for f in fields:
-            row.append(d[f] if f in d else None)
+        row = [d[f] if f in d else None for f in fields]
         table.append(row)
     print(tabulate.tabulate(table, headers=fields))
 
-    #data = create_issue_comment(args)
+    if args.prow_download_path is not None:
+        print("")
+        for d in data:
+            guess_run_id = d["target_url"].split("/")[-1]
+            guess_job_name = d["target_url"].split("/")[-2]
+            guess_test_name = d["context"].split("/")[-1]
 
-    #print(json.dumps(data))
+            if not os.path.exists(guess_run_id):
+              os.makedirs(guess_run_id)
 
+            runme = [
+                "gsutil",
+                "-m",
+                "cp",
+                "-r",
+                f"gs://test-platform-results/pr-logs/pull/{args.owner}_{args.repo}/{args.pull_number}/{guess_job_name}/{guess_run_id}/artifacts/{guess_test_name}/{args.prow_download_path}",
+                f"{guess_run_id}/",
+            ]
+            print(f"Downloading: {' '.join(runme)}")
 
-# job=rehearse-47362-pull-ci-openshift-pipelines-performance-main-max-concurrency-downstream-1-13-1000-60-b
-# name=max-concurrency-downstream-1-13-1000-60-b
-# scenario=1000-60
-# run=1746829502866001920
-# gs://test-platform-results/pr-logs/pull/openshift_release/$pr/$job/$run/artifacts/$name/openshift-pipelines-max-concurrency/artifacts/run-$scenario/ . &>gsutil.log
+            process = subprocess.Popen(runme, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+            exit_code = process.returncode
 
-# ci/rehearse/openshift-pipelines/performance/main/max-concurrency-downstream-1-13-1000-60-g
-# https://prow.ci.openshift.org/view/gs/test-platform-results/pr-logs/pull/openshift_release/47362/rehearse-47362-pull-ci-openshift-pipelines-performance-main-max-concurrency-downstream-1-13-1000-60-g/1746917217628327936
+            if exit_code != 0:
+                logging.error(f"Failed to run: '{' '.join(runme)}'")
+                logging.error(f"stdout: {stdout.decode()}")
+                logging.error(f"stderr: {stderr.decode()}")
+                logging.error(f"Exit code: {exit_code}")
+                sys.exit(1)
+
+            print(f"...finished with {exit_code}")
 
 
 def main():
@@ -177,6 +201,7 @@ def main():
     parser_list_checks.add_argument('--filter-by-target-url-re', help='Only show checks with target_url matching this regexp, check automatically excluded if its target_url is empty')
     parser_list_checks.add_argument('--filter-by-created-at-ge', type=datetime.datetime.fromisoformat, help='Only show checks with created_at >= of given date')
     parser_list_checks.add_argument('--latest-by-context', action='store_true', help='Only show latest checks for every context by created_at time')
+    parser_list_checks.add_argument("--prow-download-path", help="Download artifacts from Prow at this path (e.g. 'openshift-pipelines-max-concurrency/artifacts/'")
 
     parser_add_comment = subparsers.add_parser('add_comment', help='Add comment')
     parser_add_comment.set_defaults(func=add_comment)
